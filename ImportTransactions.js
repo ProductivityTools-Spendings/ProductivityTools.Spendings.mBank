@@ -122,7 +122,7 @@ function copyDataToSpreadsheet(trixUrl, threadId, date, data) {
 function getDateFromEmailAttachement(attachement) {
   const content = attachement.getDataAsString();
   const $ = Cheerio.load(content);
-  var x = $("table > tbody > tr > td > h5").first();
+  var x = $("table > tbody > tr > td > h1").first();
   var date = x.text().replace("Powiadomienie e-mail", "").trim().replace(" -", "");
   return date;
 }

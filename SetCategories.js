@@ -7,7 +7,7 @@ function setCatgoriesForTransactions(trixUrl) {
   var rowsCount = dataRange.getNumRows();
 
   //var data = dataRange.getValues();
-  for (i = 2; i <= rowsCount; i++) {
+  for (i = 2000; i <= rowsCount; i++) {
     var category = dataRange.getCell(i, 12);
     var categoryValue = category.getValue();
     if (categoryValue == "") {

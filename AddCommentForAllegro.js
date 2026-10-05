@@ -6,7 +6,7 @@ function fillAllegroPurchase(mbankTrixUrl, allegroTrixUrl) {
   var rowsCount = dataRange.getNumRows();
 
   //var data = dataRange.getValues();
-  for (i = 2; i <= rowsCount; i++) {
+  for (i = 3500; i <= rowsCount; i++) {
     var description = dataRange.getCell(i, 10);
     var descriptionValue = description.getValue();
     console.log(descriptionValue)
