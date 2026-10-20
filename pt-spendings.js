@@ -152,3 +152,28 @@ function sendAttachmentToSpendingsApi(m, attachment) {
     "messageId:", m.messageId);
   return false;
 }
+
+
+/**
+ * HTTP entry point so the export can be started from a link in the browser:
+ *   GET https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec
+ *
+ * Deploy as "Web app" with Execute as: Me and Who has access: Only myself - Google then lets only the
+ * owner's signed-in browser session reach this function, so no extra secret is needed. Same 6-minute limit
+ * as a manual run: the export stops itself after ~5 minutes, open the URL again to continue.
+ */
+function doGet() {
+  var startedAt = Date.now();
+  try {
+    exportMBankEmailsToSpendingsApi();
+    return textResponse("OK: exportMBankEmailsToSpendingsApi finished in "
+      + Math.round((Date.now() - startedAt) / 1000) + " s. See Executions in Apps Script for the log.");
+  } catch (err) {
+    console.error("doGet failed:", err);
+    return textResponse("ERROR: " + err);
+  }
+}
+
+function textResponse(text) {
+  return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.TEXT);
+}
