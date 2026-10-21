@@ -1,4 +1,4 @@
-const SPENDINGS_WEBAPI_URL = "http://34.116.163.207:8086/api/emails/raw";
+const SPENDINGS_WEBAPI_URL = "https://spendings-api.productivitytools.top/api/emails/raw";
 const MBANK_SUBJECT = "mBank - powiadomienie e-mail";
 const MBANK_ATTACHMENT_PREFIX = "Powiadomienie e-mail z";
 const MBANK_ARCHIVE_LABEL = ".Archive/mBankTransfers";
