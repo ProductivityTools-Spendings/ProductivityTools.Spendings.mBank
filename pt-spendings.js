@@ -84,7 +84,7 @@ function sendAttachmentToSpendingsApi(m, attachment) {
     subject: m.subject,
     attachmentName: attachment.getName(),
     emailDate: new Date(m.date).toISOString(),
-    rawHtml: attachment.getDataAsString()
+    rawHtml: decodeAttachment(attachment)
   };
   var response = UrlFetchApp.fetch(SPENDINGS_WEBAPI_URL, {
     method: "post",
@@ -123,4 +123,78 @@ function doGet() {
 
 function textResponse(text) {
   return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.TEXT);
+}
+
+/**
+ * Decodes an attachment using the charset declared in its HTML (mBank uses iso-8859-2).
+ * getDataAsString() without an argument assumes UTF-8 and replaces Polish letters with U+FFFD.
+ */
+function decodeAttachment(attachment) {
+  // ISO-8859-1 maps every byte to a char, so the ASCII <meta> tag can always be read
+  var probe = attachment.getDataAsString("ISO-8859-1");
+  var match = probe.match(/charset\s*=\s*["']?([A-Za-z0-9_-]+)/i);
+  var charset = match ? match[1] : "UTF-8";
+  try {
+    return attachment.getDataAsString(charset);
+  } catch (e) {
+    console.warn("Unknown charset", charset, "- falling back to UTF-8:", e);
+    return attachment.getDataAsString();
+  }
+}
+
+/**
+ * One-off repair: re-sends every archived mBank notification (label .Archive/mBankTransfers) with the correct
+ * charset. The WebApi recognises e-mails it already has and, when the stored copy lost Polish characters,
+ * replaces it and fixes the transaction titles. Threads stay archived. Resumable: if the run gets close to the
+ * Apps Script time limit it stores the position and the next run continues from there.
+ */
+function resendArchivedMBankEmailsWithCorrectCharset() {
+  var label = GmailApp.getUserLabelByName(MBANK_ARCHIVE_LABEL);
+  if (!label) {
+    console.error("Label not found:", MBANK_ARCHIVE_LABEL);
+    return;
+  }
+  var props = PropertiesService.getScriptProperties();
+  var offset = Number(props.getProperty("RESEND_OFFSET") || 0);
+  var startedAt = Date.now();
+  var maxRuntimeMs = 5 * 60 * 1000;
+  var pageSize = 50;
+  var sent = 0;
+
+  while (true) {
+    var threads = label.getThreads(offset, pageSize);
+    if (threads.length === 0) {
+      props.deleteProperty("RESEND_OFFSET");
+      console.log("Done. Attachments re-sent in this run:", sent);
+      return;
+    }
+    for (var t = 0; t < threads.length; t++) {
+      var thread = threads[t];
+      if (thread.getFirstMessageSubject() !== MBANK_SUBJECT) {
+        continue;
+      }
+      var msgs = thread.getMessages();
+      for (var i = 0; i < msgs.length; i++) {
+        var msg = msgs[i];
+        var m = { threadId: thread.getId(), messageId: msg.getId(), subject: msg.getSubject(), date: msg.getDate().getTime() };
+        var attachments = msg.getAttachments().filter(function (a) {
+          return a.getName().startsWith(MBANK_ATTACHMENT_PREFIX);
+        });
+        for (var a = 0; a < attachments.length; a++) {
+          if (!sendAttachmentToSpendingsApi(m, attachments[a])) {
+            props.setProperty("RESEND_OFFSET", String(offset));
+            console.warn("Stopped on a failed request at offset", offset, "- run again after fixing the cause.");
+            return;
+          }
+          sent++;
+        }
+      }
+    }
+    offset += threads.length;
+    if (Date.now() - startedAt > maxRuntimeMs) {
+      props.setProperty("RESEND_OFFSET", String(offset));
+      console.log("Time limit reached at offset", offset, "- run again to continue. Sent in this run:", sent);
+      return;
+    }
+  }
 }
